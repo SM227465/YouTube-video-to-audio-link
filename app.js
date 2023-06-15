@@ -34,7 +34,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // iv) Limiting request from same IP (its help us from Bruteforce and DOS/DDOS attacks)
 const limiter = rateLimit({
-  max: 100,
+  max: 200,
   windowMs: 60 * 60 * 1000,
   message: 'Too many request from your IP, please try again in an hour.',
 });
@@ -43,13 +43,13 @@ app.use('/api', limiter);
 // v) Body parser (reading data from body into req.body) and set limit to 10kb on creating and updating documents
 app.use(express.json({ limit: '10kb' }));
 
-// viii) Data sanitization against XSS (Cross-site scripting)
+// vi) Data sanitization against XSS (Cross-site scripting)
 app.use(xss());
 
-// ix) Prevent parameter pollution (pass all the params inside whitelist array which you want to allow in req.query to avoid unnecessary params by a malicious user)
+// vii) Prevent parameter pollution (pass all the params inside whitelist array which you want to allow in req.query to avoid unnecessary params by a malicious user)
 app.use(hpp({ whitelist: [] }));
 
-// x) Compressing
+// viii) Compressing
 app.use(compression());
 
 app.get('/api/v1/yt/:id', async (req, res) => {
@@ -62,8 +62,6 @@ app.get('/api/v1/yt/:id', async (req, res) => {
     });
   }
 
-  //   console.log(id);
-
   const result = ytdl.validateID(id);
 
   if (!result) {
@@ -73,19 +71,26 @@ app.get('/api/v1/yt/:id', async (req, res) => {
     });
   }
 
-  const info = await ytdl.getInfo(id);
-  const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+  try {
+    const info = await ytdl.getInfo(id);
+    const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
 
-  if (audioFormats && audioFormats.length) {
-    return res.status(200).json({
-      success: true,
-      data: audioFormats,
-    });
-  } else {
-    res.status(502).json({
+    if (audioFormats && audioFormats.length) {
+      return res.status(200).json({
+        success: true,
+        data: audioFormats,
+      });
+    } else {
+      return res.status(502).json({
+        success: false,
+        message: 'Bad Gateway',
+        data: null,
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({
       success: false,
-      message: 'Bad Gateway',
-      data: null,
+      message: error?.message || 'Something went wrong',
     });
   }
 });
